@@ -1,108 +1,124 @@
 # Google Tasks MCP Server
 
-![gtasks mcp logo](./logo.jpg)
-[![smithery badge](https://smithery.ai/badge/@zcaceres/gtasks)](https://smithery.ai/server/@zcaceres/gtasks)
+An MCP server that lets AI coding assistants (OpenCode, Claude, Cursor, etc.) read and manage your Google Tasks. Forked from [@zcaceres/gtasks-mcp](https://github.com/zcaceres/gtasks-mcp).
 
-This MCP server integrates with Google Tasks to allow listing, reading, searching, creating, updating, and deleting tasks.
-
-## Components
-
-### Tools
-
-- **search**
-  - Search for tasks in Google Tasks
-  - Input: `query` (string): Search query
-  - Returns matching tasks with details
-
-- **list**
-  - List all tasks in Google Tasks
-  - Optional input: `cursor` (string): Cursor for pagination
-  - Returns a list of all tasks
-
-- **create**
-  - Create a new task in Google Tasks
-  - Input:
-    - `taskListId` (string, optional): Task list ID
-    - `title` (string, required): Task title
-    - `notes` (string, optional): Task notes
-    - `due` (string, optional): Due date
-  - Returns confirmation of task creation
-
-- **update**
-  - Update an existing task in Google Tasks
-  - Input:
-    - `taskListId` (string, optional): Task list ID
-    - `id` (string, required): Task ID
-    - `uri` (string, required): Task URI
-    - `title` (string, optional): New task title
-    - `notes` (string, optional): New task notes
-    - `status` (string, optional): New task status ("needsAction" or "completed")
-    - `due` (string, optional): New due date
-  - Returns confirmation of task update
-
-- **delete**
-  - Delete a task in Google Tasks
-  - Input:
-    - `taskListId` (string, required): Task list ID
-    - `id` (string, required): Task ID
-  - Returns confirmation of task deletion
-
-- **clear**
-  - Clear completed tasks from a Google Tasks task list
-  - Input: `taskListId` (string, required): Task list ID
-  - Returns confirmation of cleared tasks
-
-### Resources
-
-The server provides access to Google Tasks resources:
-
-- **Tasks** (`gtasks:///<task_id>`)
-  - Represents individual tasks in Google Tasks
-  - Supports reading task details including title, status, due date, notes, and other metadata
-  - Can be listed, read, created, updated, and deleted using the provided tools
-
-## Getting started
-
-1. [Create a new Google Cloud project](https://console.cloud.google.com/projectcreate)
-2. [Enable the Google Tasks API](https://console.cloud.google.com/workspace-api/products)
-3. [Configure an OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent) ("internal" is fine for testing)
-4. Add scopes `https://www.googleapis.com/auth/tasks`
-5. [Create an OAuth Client ID](https://console.cloud.google.com/apis/credentials/oauthclient) for application type "Desktop App"
-6. Download the JSON file of your client's OAuth keys
-7. Rename the key file to `gcp-oauth.keys.json` and place into the root of this repo (i.e. `gcp-oauth.keys.json`)
-
-Make sure to build the server with either `npm run build` or `npm run watch`.
-
-### Installing via Smithery
-
-To install Google Tasks Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@zcaceres/gtasks):
+## Quick Start
 
 ```bash
-npx -y @smithery/cli install @zcaceres/gtasks --client claude
+git clone https://github.com/fiddler-labs/gtasks-mcp.git
+cd gtasks-mcp
+npm install
+npm run build
 ```
 
-### Authentication
+## Google Cloud Setup (one-time)
 
-To authenticate and save credentials:
+You need OAuth credentials so the server can access your Google Tasks.
 
-1. Run the server with the `auth` argument: `npm run start auth`
-2. This will open an authentication flow in your system browser
-3. Complete the authentication process
-4. Credentials will be saved in the root of this repo (i.e. `.gdrive-server-credentials.json`)
+1. Go to [Google Cloud Console](https://console.cloud.google.com/projectcreate) and create a new project (or use an existing one)
+2. [Enable the Google Tasks API](https://console.cloud.google.com/workspace-api/products) for your project
+3. [Configure an OAuth consent screen](https://console.cloud.google.com/apis/credentials/consent) — "External" is fine, add yourself as a test user
+4. Add the scope `https://www.googleapis.com/auth/tasks`
+5. [Create an OAuth Client ID](https://console.cloud.google.com/apis/credentials/oauthclient) — select **"Desktop App"** as the application type
+6. Download the JSON file of your client's OAuth keys
+7. Save it as `gcp-oauth.keys.json` in the root of this repo
 
-### Usage with Desktop App
+## Authenticate
 
-To integrate this server with the desktop app, add the following to your app's server configuration:
+Run the auth flow to get a credentials token:
+
+```bash
+npm start auth
+```
+
+This opens a browser for Google sign-in. After authorizing, credentials are saved to `.gtasks-server-credentials.json` (gitignored). You only need to do this once — tokens auto-refresh.
+
+Verify it works:
+
+```bash
+npm start
+```
+
+You should see no errors. Press Ctrl+C to stop.
+
+## OpenCode Integration
+
+Add to your OpenCode config (`~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "gtasks": {
+      "type": "local",
+      "command": ["node", "/absolute/path/to/gtasks-mcp/dist/index.js"],
+      "enabled": true
+    }
+  }
+}
+```
+
+Replace `/absolute/path/to/gtasks-mcp` with the actual path where you cloned the repo.
+
+Restart OpenCode. You'll now have tools like `gtasks_list`, `gtasks_create`, `gtasks_complete`, etc.
+
+### Custom slash command (optional)
+
+Create `~/.config/opencode/commands/tasks.md`:
+
+```markdown
+---
+description: Show my Google Tasks
+---
+Use the gtasks list_tasklists tool to get all my task lists, then use the gtasks list tool to show all incomplete tasks grouped by list.
+
+Format the output clearly showing:
+- Each list as a section header
+- Each task with its title, due date (if set), and notes (if set)
+
+Keep it concise — just the task titles unless there's a due date or notes worth showing.
+```
+
+Then type `/tasks` in OpenCode to see your task list.
+
+## Claude Desktop / Cursor / Other MCP Clients
+
+Add to your MCP client config:
 
 ```json
 {
   "mcpServers": {
     "gtasks": {
-      "command": "/opt/homebrew/bin/node",
-      "args": [
-        "{ABSOLUTE PATH TO FILE HERE}/dist/index.js"
-      ]
+      "command": "node",
+      "args": ["/absolute/path/to/gtasks-mcp/dist/index.js"]
     }
   }
 }
 ```
+
+## Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_tasklists` | List all task lists with IDs |
+| `create_tasklist` | Create a new task list |
+| `update_tasklist` | Rename a task list |
+| `delete_tasklist` | Delete a task list and all its tasks |
+| `list` | List tasks, optionally filtered by list and/or status |
+| `create` | Create a task (with optional notes, due date, parent) |
+| `update` | Update a task's title, notes, status, or due date |
+| `complete` | Mark a task as completed |
+| `delete` | Delete a task permanently |
+| `move` | Reorder a task or make it a subtask |
+| `search` | Search tasks by title or notes |
+| `clear` | Clear all completed tasks from a list |
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `GTASKS_OAUTH_KEYS_PATH` | Path to OAuth client keys JSON | `./gcp-oauth.keys.json` |
+| `GTASKS_CREDENTIALS_PATH` | Path to saved credentials | `./.gtasks-server-credentials.json` |
+
+## License
+
+MIT — see [LICENSE](./LICENSE). Original work by [Zach Caceres](https://github.com/zcaceres).
